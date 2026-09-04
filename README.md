@@ -73,3 +73,13 @@ ansible-playbook site.yml
 # Verificar
 curl -I https://tu-dominio.com
 ```
+
+<!-- BEGIN cc:que-se-valora -->
+¡Hola! Aquí te explico qué es lo que miraremos con lupa cuando corrijamos tu proyecto de Ansible AWS. La idea es que sepas dónde poner el foco para que tu trabajo brille.
+
+## 📋 Qué se valora
+
+Lo que más pesa es que tu proyecto funcione tal y como se pide en el enunciado, es decir, que haga exactamente lo que se espera de él. También es muy importante que tu código esté bien escrito y que la forma en que has organizado todo tenga sentido y sea robusta. Le daremos un peso importante a tu vídeo demo, porque nos ayuda a ver cómo funciona todo en la práctica y cómo lo explicas. Por último, aunque con un peso menor, nos fijaremos en cómo has documentado tus decisiones y tu proyecto en general.
+
+Recuerda que el enunciado es la guía principal y que no te penalizaremos por cosas que no se pidan explícitamente en él.
+<!-- END cc:que-se-valora -->
