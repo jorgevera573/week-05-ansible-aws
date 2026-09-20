@@ -21,17 +21,15 @@ workflow:
     - if: $CI_COMMIT_BRANCH
 
 # --- Ansible ----------------------------------------------------------------
-# ansible-core 2.21 exige Python >= 3.12 en el nodo de control: de ahi la imagen.
+# El runner shell utiliza Python 3.12 y un entorno virtual para las dependencias.
 # El playbook usa exclusivamente modulos ansible.builtin, y ansible.cfg fija
 # stdout_callback = ansible.builtin.default, asi que NO hace falta instalar
 # ninguna coleccion de Galaxy en el CI.
 ansible:lint:
   stage: lint
-    variables:
+  variables:
     ANSIBLE_CONFIG: $CI_PROJECT_DIR/ansible.cfg
     PIP_DISABLE_PIP_VERSION_CHECK: "1"
-    # ansible-lint descubre los ficheros con git; sin el, degrada a un escaneo
-    # del sistema de ficheros y emite avisos.
     GIT_DEPTH: "0"
   before_script:
     - apt-get update -qq
@@ -42,16 +40,12 @@ ansible:lint:
       python3 -m venv "$ANSIBLE_CI_TMP/venv"
       . "$ANSIBLE_CI_TMP/venv/bin/activate"
       python -m pip install --no-cache-dir -r requirements-dev.txt
-    script:
-    - echo "== Versiones =="
-    - ansible --version | head -1
-    - ansible-lint --version | head -1
+  script:
+    - ansible --version
+    - ansible-lint --version
     - yamllint --version
-    - echo "== yamllint =="
     - yamllint .
-    - echo "== ansible-playbook --syntax-check =="
     - ansible-playbook site.yml --syntax-check
-    - echo "== ansible-lint =="
     - ansible-lint
 
 # --- Terraform --------------------------------------------------------------
