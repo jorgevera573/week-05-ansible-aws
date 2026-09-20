@@ -27,17 +27,22 @@ workflow:
 # ninguna coleccion de Galaxy en el CI.
 ansible:lint:
   stage: lint
-  image: python:3.12-slim
-  variables:
+    variables:
     ANSIBLE_CONFIG: $CI_PROJECT_DIR/ansible.cfg
     PIP_DISABLE_PIP_VERSION_CHECK: "1"
     # ansible-lint descubre los ficheros con git; sin el, degrada a un escaneo
     # del sistema de ficheros y emite avisos.
     GIT_DEPTH: "0"
   before_script:
-    - apt-get update -qq && apt-get install -y -qq --no-install-recommends git
-    - python -m pip install --no-cache-dir -r requirements-dev.txt
-  script:
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends python3-venv git
+    - |
+      ANSIBLE_CI_TMP="$(mktemp -d)"
+      trap 'rm -rf "$ANSIBLE_CI_TMP"' EXIT
+      python3 -m venv "$ANSIBLE_CI_TMP/venv"
+      . "$ANSIBLE_CI_TMP/venv/bin/activate"
+      python -m pip install --no-cache-dir -r requirements-dev.txt
+    script:
     - echo "== Versiones =="
     - ansible --version | head -1
     - ansible-lint --version | head -1
@@ -54,30 +59,40 @@ ansible:lint:
 # estado, no se leen credenciales y no se crea ni modifica nada en AWS.
 terraform:validate:
   stage: lint
-  image:
-    name: hashicorp/terraform:1.16
-    entrypoint: [""]
+  variables:
+    TF_VERSION: "1.16.3"
+    TF_IN_AUTOMATION: "true"
+  before_script:
+    - |
+      set -euo pipefail
+      TERRAFORM_CI_TMP="$(mktemp -d)"
+      trap 'rm -rf "$TERRAFORM_CI_TMP"' EXIT
+
+      case "$(uname -m)" in
+        x86_64) TF_ARCH="amd64" ;;
+        aarch64) TF_ARCH="arm64" ;;
+        *) echo "Arquitectura no compatible"; exit 1 ;;
+      esac
+
+      TF_ARCHIVE="terraform_${TF_VERSION}_linux_${TF_ARCH}.zip"
+      TF_BASE_URL="https://releases.hashicorp.com/terraform/${TF_VERSION}"
+
+      (
+        cd "$TERRAFORM_CI_TMP"
+        curl -fsS --retry 3 -O "$TF_BASE_URL/$TF_ARCHIVE"
+        curl -fsS --retry 3 \
+          -o SHA256SUMS "$TF_BASE_URL/terraform_${TF_VERSION}_SHA256SUMS"
+        awk -v archive="$TF_ARCHIVE" '$2 == archive {print}' \
+          SHA256SUMS > selected.sha256
+        test -s selected.sha256
+        sha256sum -c selected.sha256
+        unzip -q "$TF_ARCHIVE"
+      )
+
+      export PATH="$TERRAFORM_CI_TMP:$PATH"
   script:
     - cd infra
     - terraform version
-    - echo "== terraform fmt -check =="
     - terraform fmt -check -recursive
-    - echo "== terraform init -backend=false =="
     - terraform init -backend=false -input=false
-    - echo "== terraform validate =="
     - terraform validate
-runner:diagnostico:
-  stage: lint
-  when: manual
-  script:
-    - |
-      echo "=== Sistema ==="
-      cat /etc/os-release
-      uname -m
-      id
-      echo "=== Herramientas disponibles ==="
-      for herramienta in python python3 pip3 uv curl wget unzip docker terraform; do
-        command -v "$herramienta" || true
-      done
-      echo "=== Version de Python ==="
-      python3 --version || true
