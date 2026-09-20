@@ -34,6 +34,16 @@ Terraform prepara la infraestructura. Ansible configura el sistema operativo y l
 - Conectividad ya comprobada: `ansible all -m ping` responde SUCCESS con pong.
 - Security group: SSH 22 solo desde la IPv4 pública del alumno /32; HTTP 80 y HTTPS 443 públicos; el puerto 3000 no está expuesto.
 
+## Estado de la entrega
+
+- Fase 2 completada: playbook aplicado contra la EC2. Servicio operativo en https://aws.jorgeveraoficial.com con HTTP 301 hacia HTTPS y HTTPS 200.
+- Idempotencia verificada por el alumno en la segunda ejecución: ok=41, changed=0, unreachable=0, failed=0, skipped=8.
+- Renovación automática comprobada con certbot renew --dry-run y persistencia comprobada tras reinicio mediante Ansible.
+- CI de GitLab operativo. Pipeline #3079 en verde sobre el commit 380b2404: ansible:lint 27 s y terraform:validate 18 s. URL: https://gitlab.codecrypto.academy/jverav573/1.4.30-ansible-aws/-/pipelines/3079
+- El runner del proyecto tiene la etiqueta cloudrun y ejecutor shell. El ejecutor shell no interpreta image:, de modo que cada job instala sus propias herramientas: ansible:lint crea un entorno virtual de Python en un directorio temporal y terraform:validate descarga Terraform 1.16.3 en otro temporal verificando el SHA-256 publicado. No usar image: en este pipeline.
+- El pipeline valida solo código estático: no recibe credenciales AWS, no accede al estado de Terraform, no ejecuta apply ni destroy y no se conecta por SSH a la EC2.
+- Guion del vídeo demo en docs/guion-demo.md.
+
 ## Alcance y protección del entorno existente
 
 - La cuenta AWS también aloja ALINA. Crear recursos nuevos de esta práctica, identificados con Project=master-semana05 y ManagedBy=Terraform.

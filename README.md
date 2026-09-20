@@ -127,6 +127,7 @@ roles/
   nodejs/                   # NodeSource (keyring + repo deb822) + app demo + systemd
   nginx/                    # Reverse proxy; plantilla única del vhost
   certbot/                  # Comprobación DNS, emisión TLS y renovación automática
+docs/guion-demo.md          # Guion de rodaje del vídeo demo
 .gitlab-ci.yml              # CI de validación (lint + syntax-check + terraform validate)
 .yamllint / .ansible-lint   # Configuración de los linters
 requirements-dev.txt        # Versiones fijadas de las herramientas de validación
@@ -403,24 +404,52 @@ etapa (`lint`) y dos jobs:
 - **`terraform:validate`** — `terraform fmt -check` y `terraform validate` con
   `terraform init -backend=false`.
 
-Detalles de las dependencias del pipeline:
+### Resultado del pipeline remoto
 
-- La imagen es `python:3.12-slim` porque `ansible-core 2.21` exige Python >= 3.12
-  en el nodo de control.
-- El job instala `git`, que `ansible-lint` usa para descubrir los ficheros del
+Evidencias aportadas por el alumno desde GitLab:
+
+| Dato | Valor |
+|---|---|
+| Pipeline | **#3079** — **passed** |
+| Commit validado | `380b2404` |
+| `ansible:lint` | **Passed**, 27 segundos |
+| `terraform:validate` | **Passed**, 18 segundos |
+
+Enlace: <https://gitlab.codecrypto.academy/jverav573/1.4.30-ansible-aws/-/pipelines/3079>
+
+### Cómo está construido
+
+El proyecto usa un runner con la etiqueta **`cloudrun`** y **ejecutor `shell`**.
+Eso condiciona todo el diseño del fichero: un ejecutor `shell` corre los comandos
+directamente sobre la máquina del runner y **no admite `image:`**, así que cada
+job tiene que procurarse sus propias herramientas.
+
+- **`default.tags: [cloudrun]`** selecciona el runner. Sin esta etiqueta los jobs
+  se quedan en estado *pending* sin que ningún runner los recoja.
+- **`ansible:lint`** instala `python3-venv` y `git`, crea un **entorno virtual de
+  Python en un directorio temporal** (`mktemp -d`) e instala ahí
+  `requirements-dev.txt`. Un `trap ... EXIT` borra el temporal al terminar el
+  job, de modo que no queda estado entre ejecuciones en un runner persistente.
+  `git` es necesario porque `ansible-lint` lo usa para descubrir los ficheros del
   repositorio.
-- No se instala **ninguna coleccion de Galaxy**: el playbook usa solo modulos
-  `ansible.builtin` y, tras corregir el callback, `ansible.cfg` tampoco depende
-  de `community.general`.
+- **`terraform:validate`** descarga **Terraform 1.16.3** —la misma versión que se
+  usa en local— en otro directorio temporal, se baja el fichero `SHA256SUMS`
+  publicado por HashiCorp y **verifica el archivo con `sha256sum -c`** antes de
+  descomprimirlo. Solo entonces añade el binario al `PATH`. La arquitectura se
+  detecta con `uname -m` (`amd64` / `arm64`).
+- **Ninguna colección de Galaxy**: el playbook usa solo módulos `ansible.builtin`
+  y, tras corregir el callback, `ansible.cfg` tampoco depende de
+  `community.general`. Basta con `ansible-core`.
 - Las versiones vienen de `requirements-dev.txt`, las mismas que se usan en local.
 
 El pipeline **no recibe credenciales de AWS**, no accede al estado de Terraform,
-no ejecuta `apply` ni `destroy` y no se conecta por SSH a la EC2. El unico
+no ejecuta `apply` ni `destroy` y no se conecta por SSH a la EC2. El único
 `terraform init` se lanza con `-backend=false`.
 
-> **Estado del pipeline remoto: pendiente.** Todavia no se ha ejecutado en
-> GitLab. Lo que si esta comprobado es que los mismos comandos del job pasan en
-> local (ver *Validacion estatica*).
+> **Alcance**: el pipeline valida **código estático**. Que esté en verde
+> significa que el formato, la sintaxis y las buenas prácticas son correctas —
+> no que la infraestructura esté desplegada ni que el servicio responda. Eso lo
+> acreditan las evidencias de la sección anterior.
 
 ## Incidencias encontradas
 
@@ -477,6 +506,21 @@ sirviendo la configuración anterior.
 **Solución**: se eliminó la directiva de la plantilla y se conservó
 `listen 443 ssl;`. El sitio sirve HTTPS correctamente sobre HTTP/1.1.
 
+### En el CI de GitLab
+
+Hasta llegar al pipeline #3079 en verde hubo tres tropiezos, todos ya resueltos
+en `.gitlab-ci.yml`:
+
+| Incidencia | Causa | Solución |
+|---|---|---|
+| Los jobs se quedaban en *pending*, sin ejecutarse | Ningún runner recogía los jobs porque no coincidía la selección por etiquetas | Se declaró `default.tags: [cloudrun]`, la etiqueta del runner disponible en el proyecto |
+| Faltaban herramientas dentro del job (`python`, `terraform`) | El runner usa el **ejecutor `shell`**, que ejecuta los comandos sobre la propia máquina y **no interpreta `image:`**; la imagen de contenedor que se había declarado simplemente se ignoraba | Cada job se procura sus herramientas: `ansible:lint` crea un entorno virtual de Python en un temporal, y `terraform:validate` descarga Terraform 1.16.3 verificando su SHA-256 |
+| El fichero no era YAML válido | Indentación incorrecta y falta del salto de línea final | Se corrigió la indentación y se añadió el salto de línea al final del fichero |
+
+La segunda es la que explica el diseño del pipeline: con un ejecutor `shell` no
+hay contenedor que traiga las herramientas, así que instalarlas —y limpiarlas
+con `trap ... EXIT`— forma parte del propio job.
+
 ### Durante la generación del código
 
 | Incidencia | Causa | Solución |
@@ -521,6 +565,11 @@ Antes de destruir:
 
 ## Guion para la demo
 
+Guion de rodaje completo, con qué mostrar, qué decir y qué comando ejecutar en
+cada paso: **[`docs/guion-demo.md`](docs/guion-demo.md)**.
+
+Resumen de los puntos a cubrir:
+
 1. **Terraform** — `infra/main.tf` y `terraform output`: VPC, subred, security
    group (22 restringido, 80/443 públicos, 3000 cerrado), EC2 y Elastic IP.
 2. **Inventario y variables** — `inventory/hosts.yml` y `group_vars/all.yml`:
@@ -538,3 +587,5 @@ Antes de destruir:
 8. **Persistencia** — reinicio con Ansible (`rebooted=true`, `elapsed=20`) y,
    sin reaplicar nada, `nginx`, `demoapp` y `certbot.timer` vuelven `active` y
    `enabled`, y el sitio sigue respondiendo 200 por HTTPS.
+9. **CI** — pipeline [#3079](https://gitlab.codecrypto.academy/jverav573/1.4.30-ansible-aws/-/pipelines/3079)
+   en verde, dejando claro que valida código estático, no el despliegue.
