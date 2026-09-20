@@ -66,3 +66,18 @@ terraform:validate:
     - terraform init -backend=false -input=false
     - echo "== terraform validate =="
     - terraform validate
+runner:diagnostico:
+  stage: lint
+  when: manual
+  script:
+    - |
+      echo "=== Sistema ==="
+      cat /etc/os-release
+      uname -m
+      id
+      echo "=== Herramientas disponibles ==="
+      for herramienta in python python3 pip3 uv curl wget unzip docker terraform; do
+        command -v "$herramienta" || true
+      done
+      echo "=== Version de Python ==="
+      python3 --version || true
