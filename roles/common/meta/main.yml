@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  author: Jorge Ricardo Vera
+  description: Actualizacion del sistema base y paquetes comunes
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+  galaxy_tags:
+    - system
+dependencies: []

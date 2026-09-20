@@ -1,0 +1,19 @@
+---
+nginx_server_name: "{{ app_domain }}"
+nginx_site_name: "{{ app_name }}"
+
+# Destino del reverse proxy: la app Node.js en loopback.
+nginx_upstream_host: "{{ app_listen_host }}"
+nginx_upstream_port: "{{ app_listen_port }}"
+
+# Rutas de los materiales que emite Certbot. El rol nginx solo las LEE:
+# decide si renderizar el bloque HTTPS en funcion de que exista el fullchain.
+nginx_cert_dir: "/etc/letsencrypt/live/{{ app_domain }}"
+nginx_cert_fullchain: "{{ nginx_cert_dir }}/fullchain.pem"
+nginx_cert_privkey: "{{ nginx_cert_dir }}/privkey.pem"
+
+# Raiz usada por el challenge HTTP-01 de Let's Encrypt.
+nginx_acme_webroot: /var/www/letsencrypt
+
+nginx_packages:
+  - nginx

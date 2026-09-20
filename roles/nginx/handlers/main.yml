@@ -1,0 +1,13 @@
+---
+# Los handlers se ejecutan en el orden en que estan definidos aqui, no en el
+# orden de notificacion: la validacion corre siempre ANTES de la recarga.
+# Si `nginx -t` falla, el play aborta y Nginx sigue sirviendo la configuracion
+# anterior que ya tiene cargada en memoria.
+- name: Validar la configuracion de Nginx
+  ansible.builtin.command: nginx -t
+  changed_when: false
+
+- name: Recargar Nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: reloaded

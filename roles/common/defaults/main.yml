@@ -1,0 +1,26 @@
+---
+# Politica de actualizacion del sistema.
+# 'safe' equivale a `apt upgrade` sin eliminar paquetes; no usamos 'dist' para
+# no arrastrar cambios de kernel/paquetes que impliquen reinicio inesperado.
+common_apt_upgrade: true
+common_apt_upgrade_mode: safe
+
+# Validez de la cache de apt en segundos: evita un `apt update` por tarea.
+common_apt_cache_valid_time: 3600
+
+# POLITICA DE REINICIO: el playbook NUNCA reinicia la maquina por su cuenta.
+# Si una actualizacion deja /var/run/reboot-required, se informa al final y el
+# reinicio queda como decision manual del operador. Ponerlo a true solo si se
+# acepta perder la conexion durante la ejecucion.
+common_allow_reboot: false
+
+# Paquetes base necesarios para el resto de roles:
+#  - ca-certificates/curl/gnupg: descarga y verificacion del keyring NodeSource
+#  - python3-debian: requerido por el modulo ansible.builtin.deb822_repository
+#  - bind9-dnsutils: comprobacion de registros A/AAAA antes de emitir el certificado
+common_base_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - python3-debian
+  - bind9-dnsutils

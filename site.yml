@@ -1,0 +1,39 @@
+---
+# Playbook principal. Compone los roles en el orden en que se necesitan:
+#
+#   common  -> sistema base actualizado y paquetes comunes
+#   nodejs  -> runtime Node.js LTS + app de demostracion en 127.0.0.1:3000
+#   nginx   -> reverse proxy; primero solo HTTP para que Certbot pueda validar
+#   certbot -> emision del certificado y re-render del vhost ya con HTTPS
+#
+# El rol certbot vuelve a aplicar las tareas de vhost del rol nginx una vez
+# existe el certificado: asi hay una unica plantilla como fuente de verdad de
+# la configuracion de Nginx y la segunda ejecucion no produce cambios.
+- name: Configurar servidor web Ubuntu con Nginx, Node.js y TLS de Let's Encrypt
+  hosts: web
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Comprobar que el dominio esta definido
+      ansible.builtin.assert:
+        that:
+          - app_domain is defined
+          - app_domain | length > 0
+          - letsencrypt_email is defined
+          - letsencrypt_email | length > 0
+        fail_msg: >-
+          Faltan app_domain o letsencrypt_email. Defínelos en group_vars/all.yml
+          antes de ejecutar el playbook.
+        quiet: true
+      tags: [always]
+
+  roles:
+    - role: common
+      tags: [common]
+    - role: nodejs
+      tags: [nodejs, app]
+    - role: nginx
+      tags: [nginx]
+    - role: certbot
+      tags: [certbot, tls]

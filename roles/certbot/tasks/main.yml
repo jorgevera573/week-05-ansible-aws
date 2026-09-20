@@ -1,0 +1,127 @@
+---
+- name: Instalar Certbot y el plugin de Nginx
+  ansible.builtin.apt:
+    name: "{{ certbot_packages }}"
+    state: present
+
+- name: Comprobar si el certificado ya esta emitido
+  ansible.builtin.stat:
+    path: "{{ certbot_fullchain }}"
+  register: certbot_existing
+
+- name: Verificar los prerrequisitos y emitir el certificado
+  when:
+    - certbot_enabled | bool
+    - not certbot_existing.stat.exists
+  block:
+    - name: Consultar el registro DNS A del dominio
+      ansible.builtin.command:
+        argv:
+          - dig
+          - +short
+          - A
+          - "{{ certbot_domain }}"
+          - "@{{ certbot_dns_resolver }}"
+      register: certbot_dns_a
+      changed_when: false
+
+    - name: Consultar posibles registros DNS AAAA del dominio
+      ansible.builtin.command:
+        argv:
+          - dig
+          - +short
+          - AAAA
+          - "{{ certbot_domain }}"
+          - "@{{ certbot_dns_resolver }}"
+      register: certbot_dns_aaaa
+      changed_when: false
+
+    - name: Comprobar que el registro A apunta a la Elastic IP
+      ansible.builtin.assert:
+        that:
+          - certbot_expected_ip in certbot_dns_a.stdout_lines
+        fail_msg: >-
+          El registro A de {{ certbot_domain }} resuelve a
+          "{{ certbot_dns_a.stdout_lines | join(', ') | default('nada', true) }}"
+          y no a la Elastic IP {{ certbot_expected_ip }}. Corrige el registro A
+          en GoDaddy y espera a la propagacion antes de volver a ejecutar.
+        success_msg: "El registro A apunta correctamente a {{ certbot_expected_ip }}."
+        quiet: true
+      when: certbot_enforce_dns_check | bool
+
+    - name: Comprobar que no hay registros AAAA incompatibles
+      ansible.builtin.assert:
+        that:
+          - certbot_dns_aaaa.stdout | trim | length == 0
+        fail_msg: >-
+          El dominio {{ certbot_domain }} tiene registros AAAA
+          ({{ certbot_dns_aaaa.stdout_lines | join(', ') }}). Let's Encrypt
+          prefiere IPv6 para el challenge y esta EC2 no tiene IPv6 publica, por
+          lo que la validacion fallaria. Elimina los registros AAAA en GoDaddy.
+        success_msg: "Sin registros AAAA: el challenge se resolvera sobre IPv4."
+        quiet: true
+      when: certbot_enforce_dns_check | bool
+
+    - name: Comprobar que el sitio responde por HTTP desde el exterior
+      ansible.builtin.uri:
+        url: "http://{{ certbot_domain }}/"
+        method: GET
+        status_code: [200, 301, 302]
+        timeout: 15
+        follow_redirects: none
+      delegate_to: localhost
+      become: false
+      register: certbot_http_check
+      changed_when: false
+      when: certbot_http_precheck | bool
+
+    # `certonly` emite el material criptografico pero NO toca la configuracion
+    # de Nginx: el plugin --nginx se usa solo como autenticador del challenge.
+    # Asi la plantilla del rol nginx sigue siendo la unica fuente de verdad.
+    # `creates:` hace la tarea idempotente: no se reemite en ejecuciones
+    # posteriores, de lo que ya se encarga el timer de renovacion.
+    - name: Emitir el certificado de Let's Encrypt en modo no interactivo
+      ansible.builtin.command:
+        cmd: >-
+          certbot certonly --nginx --non-interactive --agree-tos
+          --email {{ certbot_admin_email }}
+          --domain {{ certbot_domain }}
+          --keep-until-expiring --no-eff-email
+          {{ '--staging' if certbot_staging | bool else '' }}
+        creates: "{{ certbot_fullchain }}"
+      register: certbot_issue
+      notify: Recargar Nginx tras emitir el certificado
+
+- name: Asegurar el directorio de hooks de despliegue de Certbot
+  ansible.builtin.file:
+    path: /etc/letsencrypt/renewal-hooks/deploy
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Instalar el hook de despliegue que recarga Nginx tras renovar
+  ansible.builtin.copy:
+    src: reload-nginx.sh
+    dest: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+# El paquete certbot de Ubuntu instala certbot.timer y tambien /etc/cron.d/certbot.
+# El cron comprueba si el timer esta activo y, en ese caso, no hace nada: no se
+# duplican ejecuciones. Por eso NO se crea ningun timer ni cron adicional.
+- name: Habilitar el timer de renovacion automatica de Certbot
+  ansible.builtin.systemd_service:
+    name: certbot.timer
+    state: started
+    enabled: true
+
+- name: Aplicar la recarga de Nginx pendiente
+  ansible.builtin.meta: flush_handlers
+
+- name: Volver a renderizar el vhost de Nginx ya con el certificado disponible
+  ansible.builtin.include_role:
+    name: nginx
+    tasks_from: vhost.yml
+  when: certbot_enabled | bool

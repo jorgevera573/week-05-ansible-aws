@@ -1,0 +1,39 @@
+# {{ ansible_managed }}
+# Servicio de la aplicacion Node.js de demostracion.
+[Unit]
+Description=Aplicacion Node.js de demostracion ({{ nodejs_app_name }})
+Documentation=https://gitlab.codecrypto.academy/jverav573/1.4.30-ansible-aws
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ nodejs_app_user }}
+Group={{ nodejs_app_group }}
+WorkingDirectory={{ nodejs_app_dir }}
+Environment=NODE_ENV=production
+Environment=APP_HOST={{ nodejs_app_host }}
+Environment=APP_PORT={{ nodejs_app_port }}
+Environment=APP_DOMAIN={{ app_domain }}
+ExecStart=/usr/bin/node {{ nodejs_app_dir }}/app.js
+Restart=on-failure
+RestartSec=5
+SyslogIdentifier={{ nodejs_app_name }}
+
+# Endurecimiento basico: la app no necesita privilegios ni escribir en disco.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=false
+CapabilityBoundingSet=
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,8 @@
+# El repositorio se edita desde Windows pero Ansible se ejecuta desde WSL:
+# se fuerza LF para evitar que un CRLF rompa yamllint o los scripts del hook.
+* text=auto eol=lf
+*.sh  text eol=lf
+*.js  text eol=lf
+*.yml text eol=lf
+*.j2  text eol=lf
+*.tf  text eol=lf

@@ -1,0 +1,22 @@
+---
+# Rama LTS de Node.js. Se toma de group_vars para poder cambiarla en un solo sitio.
+nodejs_version: "{{ nodejs_major_version | default(22) }}"
+
+# Repositorio APT oficial de NodeSource. No se ejecuta ningun script remoto
+# mediante `curl | bash`: se instala el keyring y se declara el repositorio.
+nodejs_keyring_url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+nodejs_keyring_path: /etc/apt/keyrings/nodesource.asc
+nodejs_repo_uri: "https://deb.nodesource.com/node_{{ nodejs_version }}.x"
+nodejs_repo_suite: nodistro
+nodejs_repo_component: main
+
+# Prioridad APT para que nodejs venga siempre de NodeSource y no del repo de Ubuntu.
+nodejs_apt_pin_priority: 600
+
+# Aplicacion de demostracion (valores tomados de group_vars/all.yml).
+nodejs_app_name: "{{ app_name }}"
+nodejs_app_user: "{{ app_user }}"
+nodejs_app_group: "{{ app_group }}"
+nodejs_app_dir: "{{ app_dir }}"
+nodejs_app_host: "{{ app_listen_host }}"
+nodejs_app_port: "{{ app_listen_port }}"

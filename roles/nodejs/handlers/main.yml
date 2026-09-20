@@ -1,0 +1,9 @@
+---
+- name: Recargar systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Reiniciar la aplicacion Node.js
+  ansible.builtin.systemd_service:
+    name: "{{ nodejs_app_name }}"
+    state: restarted

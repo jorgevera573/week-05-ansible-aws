@@ -1,0 +1,66 @@
+# --- Terraform ---------------------------------------------------------------
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+
+# Planes guardados: pueden contener valores sensibles.
+# El comodin cubre variantes como tfplan-reparacion o tfplan-2026-09-20.
+tfplan
+tfplan*
+*.tfplan
+*.tfplan.json
+plan.out
+
+# Variables locales del equipo (usar terraform.tfvars.example como plantilla)
+terraform.tfvars
+*.auto.tfvars
+!terraform.tfvars.example
+
+# El lock file SI se versiona
+!.terraform.lock.hcl
+
+# --- Credenciales y secretos -------------------------------------------------
+*.pem
+*.key
+*.ppk
+id_rsa*
+id_ed25519*
+master-semana05
+master-semana05.pub
+.env
+.env.*
+!.env.example
+credentials
+*_rsa
+*_ed25519
+
+# --- Ansible -----------------------------------------------------------------
+*.retry
+.vault_pass
+vault_pass.txt
+inventory/hosts.local.yml
+group_vars/*.local.yml
+.ansible/
+ansible.log
+
+# --- Caches y herramientas ---------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+.cache/
+.mypy_cache/
+.pytest_cache/
+
+# --- Editores y sistema operativo --------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*~

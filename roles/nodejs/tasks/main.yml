@@ -1,0 +1,65 @@
+---
+- name: Crear el directorio de keyrings de APT
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Descargar el keyring publico de NodeSource
+  ansible.builtin.get_url:
+    url: "{{ nodejs_keyring_url }}"
+    dest: "{{ nodejs_keyring_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+    force: false
+
+- name: Declarar el repositorio APT de NodeSource
+  ansible.builtin.deb822_repository:
+    name: nodesource
+    types: [deb]
+    uris: "{{ nodejs_repo_uri }}"
+    suites: ["{{ nodejs_repo_suite }}"]
+    components: ["{{ nodejs_repo_component }}"]
+    signed_by: "{{ nodejs_keyring_path }}"
+    enabled: true
+    state: present
+  register: nodejs_repo
+
+- name: Fijar la prioridad APT de NodeSource para el paquete nodejs
+  ansible.builtin.template:
+    src: nodesource.pref.j2
+    dest: /etc/apt/preferences.d/nodesource.pref
+    owner: root
+    group: root
+    mode: "0644"
+  register: nodejs_pin
+
+- name: Actualizar la cache de APT tras configurar NodeSource
+  ansible.builtin.apt:
+    update_cache: true
+  when: nodejs_repo.changed or nodejs_pin.changed
+
+- name: Instalar Node.js desde NodeSource
+  ansible.builtin.apt:
+    name: nodejs
+    state: present
+
+- name: Obtener la version instalada de Node.js
+  ansible.builtin.command: node --version
+  register: nodejs_installed_version
+  changed_when: false
+
+- name: Comprobar que la version instalada es la rama LTS esperada
+  ansible.builtin.assert:
+    that:
+      - nodejs_installed_version.stdout is match('^v' ~ nodejs_version ~ '\.')
+    fail_msg: >-
+      Node.js instalado ({{ nodejs_installed_version.stdout }}) no pertenece a la
+      rama {{ nodejs_version }}.x esperada. Revisa el repositorio de NodeSource.
+    quiet: true
+
+- name: Desplegar la aplicacion de demostracion
+  ansible.builtin.import_tasks: app.yml

@@ -1,0 +1,30 @@
+---
+- name: Instalar Nginx
+  ansible.builtin.apt:
+    name: "{{ nginx_packages }}"
+    state: present
+
+- name: Crear la raiz web para el challenge ACME
+  ansible.builtin.file:
+    path: "{{ nginx_acme_webroot }}/.well-known/acme-challenge"
+    state: directory
+    owner: root
+    group: www-data
+    mode: "0755"
+
+- name: Desactivar el sitio por defecto de Nginx
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify:
+    - Validar la configuracion de Nginx
+    - Recargar Nginx
+
+- name: Aplicar el virtual host del reverse proxy
+  ansible.builtin.import_tasks: vhost.yml
+
+- name: Habilitar y arrancar Nginx de forma persistente
+  ansible.builtin.systemd_service:
+    name: nginx
+    state: started
+    enabled: true

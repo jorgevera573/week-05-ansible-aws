@@ -1,0 +1,70 @@
+---
+# Aplicacion minima de demostracion. No forma parte del enunciado como tal:
+# existe para poder verificar de extremo a extremo el reverse proxy y el TLS.
+- name: Crear el grupo del servicio de la aplicacion
+  ansible.builtin.group:
+    name: "{{ nodejs_app_group }}"
+    system: true
+    state: present
+
+- name: Crear el usuario sin privilegios del servicio
+  ansible.builtin.user:
+    name: "{{ nodejs_app_user }}"
+    group: "{{ nodejs_app_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "{{ nodejs_app_dir }}"
+    create_home: false
+    state: present
+
+- name: Crear el directorio de la aplicacion
+  ansible.builtin.file:
+    path: "{{ nodejs_app_dir }}"
+    state: directory
+    owner: root
+    group: "{{ nodejs_app_group }}"
+    mode: "0750"
+
+- name: Copiar el codigo de la aplicacion
+  ansible.builtin.copy:
+    src: app.js
+    dest: "{{ nodejs_app_dir }}/app.js"
+    owner: root
+    group: "{{ nodejs_app_group }}"
+    mode: "0640"
+  notify: Reiniciar la aplicacion Node.js
+
+- name: Instalar la unidad systemd de la aplicacion
+  ansible.builtin.template:
+    src: app.service.j2
+    dest: "/etc/systemd/system/{{ nodejs_app_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Recargar systemd
+    - Reiniciar la aplicacion Node.js
+
+- name: Aplicar los handlers pendientes antes de comprobar el servicio
+  ansible.builtin.meta: flush_handlers
+
+- name: Habilitar y arrancar la aplicacion de forma persistente
+  ansible.builtin.systemd_service:
+    name: "{{ nodejs_app_name }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Esperar a que la aplicacion escuche en loopback
+  ansible.builtin.wait_for:
+    host: "{{ nodejs_app_host }}"
+    port: "{{ nodejs_app_port }}"
+    timeout: 30
+
+- name: Comprobar la respuesta local de la aplicacion
+  ansible.builtin.uri:
+    url: "http://{{ nodejs_app_host }}:{{ nodejs_app_port }}/healthz"
+    return_content: true
+    status_code: 200
+  register: nodejs_app_health
+  changed_when: false

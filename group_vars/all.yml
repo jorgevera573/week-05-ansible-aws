@@ -1,0 +1,32 @@
+---
+# Variables compartidas por todos los roles.
+# Los valores especificos de cada rol viven en roles/<rol>/defaults/main.yml.
+
+# --- Dominio y TLS -----------------------------------------------------------
+# Registro A gestionado en GoDaddy, apuntando a la Elastic IP de la EC2.
+app_domain: aws.jorgeveraoficial.com
+app_public_ip: 54.160.157.177
+
+# Correo de contacto de Let's Encrypt (avisos de expiracion).
+letsencrypt_email: jverav573@gmail.com
+
+# --- Aplicacion de demostracion ----------------------------------------------
+# Solo sirve para verificar el reverse proxy y el TLS de extremo a extremo.
+app_name: demoapp
+app_user: demoapp
+app_group: demoapp
+app_dir: /opt/demoapp
+
+# Nginx hace de reverse proxy hacia este destino. El puerto 3000 NO esta
+# abierto en el security group: la app escucha solo en loopback.
+app_listen_host: 127.0.0.1
+app_listen_port: 3000
+
+# --- Node.js -----------------------------------------------------------------
+# Rama LTS soportada instalada desde el repositorio APT de NodeSource.
+nodejs_major_version: 22
+
+# --- Interruptores de ejecucion ----------------------------------------------
+# Permite ejecutar todo el playbook sin tocar TLS:
+#   ansible-playbook site.yml -e certbot_enabled=false
+certbot_enabled: true

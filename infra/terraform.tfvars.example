@@ -1,0 +1,37 @@
+# Copia este fichero a terraform.tfvars y ajusta los valores.
+# terraform.tfvars esta ignorado por Git: contiene datos del equipo del alumno.
+
+aws_profile        = "master-semana05"
+aws_region         = "us-east-1"
+
+# Obtener SIEMPRE con:
+#   aws sts get-caller-identity --profile master-semana05
+allowed_account_id = "000000000000"
+
+project_name = "master-semana05"
+environment  = "lab"
+
+# --- Acceso SSH -------------------------------------------------------------
+# Solo la clave PUBLICA. Terraform no genera ni guarda claves privadas.
+# Desde Windows, la clave que vive en WSL se lee por ruta UNC:
+ssh_public_key_path = "//wsl.localhost/Ubuntu/home/<usuario>/.ssh/master-semana05.pub"
+# Alternativa si la ruta UNC no es legible: pegar el contenido de la clave publica.
+# ssh_public_key = "ssh-ed25519 AAAA... comentario"
+
+ssh_private_key_path_wsl = "~/.ssh/master-semana05"
+
+# IPv4 publica actual del alumno, en /32. Nunca 0.0.0.0/0.
+# Obtenerla con:  curl https://checkip.amazonaws.com
+ssh_allowed_cidr = "203.0.113.10/32"
+
+# --- Instancia --------------------------------------------------------------
+instance_type    = "t3.micro"
+root_volume_size = 12
+
+# Dejar vacio para resolver la ultima AMI de Canonical, o fijarla para
+# reproducibilidad tras anotar el valor del output ami_id.
+# ami_id = "ami-0123456789abcdef0"
+
+# --- Red --------------------------------------------------------------------
+vpc_cidr           = "10.20.0.0/16"
+public_subnet_cidr = "10.20.1.0/24"

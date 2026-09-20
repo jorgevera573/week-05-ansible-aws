@@ -1,0 +1,46 @@
+---
+- name: Actualizar la cache de paquetes APT
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: "{{ common_apt_cache_valid_time }}"
+
+- name: Actualizar los paquetes del sistema
+  ansible.builtin.apt:
+    upgrade: "{{ common_apt_upgrade_mode }}"
+  when: common_apt_upgrade | bool
+  # Esta tarea reporta 'changed' de forma legitima siempre que existan
+  # actualizaciones publicadas desde la ejecucion anterior. No es un fallo de
+  # idempotencia: es un cambio de origen externo (los repositorios de Ubuntu).
+
+- name: Instalar los paquetes base comunes
+  ansible.builtin.apt:
+    name: "{{ common_base_packages }}"
+    state: present
+
+- name: Eliminar paquetes huerfanos tras la actualizacion
+  ansible.builtin.apt:
+    autoremove: true
+    purge: false
+
+- name: Comprobar si el sistema requiere reinicio
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: common_reboot_required
+
+- name: Avisar de que hay un reinicio pendiente
+  ansible.builtin.debug:
+    msg: >-
+      El sistema tiene un reinicio pendiente (/var/run/reboot-required).
+      El playbook no reinicia por su cuenta. Reinicia manualmente en una
+      ventana de mantenimiento, o ejecuta con -e common_allow_reboot=true.
+  when:
+    - common_reboot_required.stat.exists
+    - not (common_allow_reboot | bool)
+
+- name: Reiniciar el servidor si se ha autorizado explicitamente
+  ansible.builtin.reboot:
+    msg: "Reinicio solicitado por Ansible tras actualizar paquetes"
+    reboot_timeout: 300
+  when:
+    - common_reboot_required.stat.exists
+    - common_allow_reboot | bool

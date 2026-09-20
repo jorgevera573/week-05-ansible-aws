@@ -1,0 +1,6 @@
+# {{ ansible_managed }}
+# Garantiza que el paquete nodejs provenga de NodeSource y no del repositorio
+# de Ubuntu, con independencia de los numeros de version de cada uno.
+Package: nodejs
+Pin: origin deb.nodesource.com
+Pin-Priority: {{ nodejs_apt_pin_priority }}

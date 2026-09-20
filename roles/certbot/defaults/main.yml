@@ -1,0 +1,30 @@
+---
+certbot_domain: "{{ app_domain }}"
+certbot_expected_ip: "{{ app_public_ip }}"
+certbot_admin_email: "{{ letsencrypt_email }}"
+
+certbot_packages:
+  - certbot
+  - python3-certbot-nginx
+
+# Directorio y fichero que produce la emision.
+certbot_live_dir: "/etc/letsencrypt/live/{{ certbot_domain }}"
+certbot_fullchain: "{{ certbot_live_dir }}/fullchain.pem"
+
+# Resolutor usado para comprobar los registros DNS antes de pedir el certificado.
+certbot_dns_resolver: 1.1.1.1
+
+# Si el registro A no apunta a la Elastic IP, el rol falla con un mensaje claro
+# en lugar de gastar intentos contra Let's Encrypt (hay limites de emision).
+# Poner a false solo para diagnosticar.
+certbot_enforce_dns_check: true
+
+# Entorno de pruebas de Let's Encrypt. Util para ensayar sin consumir cuota,
+# pero emite certificados NO confiables por los navegadores.
+# ATENCION: staging y produccion comparten la ruta de /etc/letsencrypt/live,
+# por lo que tras probar en staging hay que borrar el linaje antes de emitir
+# el certificado real (ver documentacion en el README).
+certbot_staging: false
+
+# Comprobacion de accesibilidad HTTP desde el nodo de control antes de emitir.
+certbot_http_precheck: true

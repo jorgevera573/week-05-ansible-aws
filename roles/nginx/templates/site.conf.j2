@@ -1,0 +1,85 @@
+# {{ ansible_managed }}
+#
+# Virtual host de {{ nginx_server_name }}.
+# Fichero gestionado integramente por Ansible (rol nginx, plantilla
+# site.conf.j2). No editar a mano: el siguiente `ansible-playbook` lo sobrescribe.
+#
+# Certbot se ejecuta en modo `certonly`, por lo que NO modifica este fichero:
+# toda la configuracion TLS vive aqui y el bloque 443 aparece en cuanto existe
+# {{ nginx_cert_fullchain }}.
+{% if nginx_tls_ready %}
+# Estado actual: certificado presente -> se publica HTTPS y se redirige HTTP.
+{% else %}
+# Estado actual: sin certificado todavia -> solo HTTP, para que Let's Encrypt
+# pueda completar el challenge HTTP-01 contra este servidor.
+{% endif %}
+
+# Soporte de WebSocket/Upgrade en el reverse proxy.
+map $http_upgrade $connection_upgrade_{{ nginx_site_name }} {
+    default upgrade;
+    ''      close;
+}
+
+upstream {{ nginx_site_name }}_backend {
+    server {{ nginx_upstream_host }}:{{ nginx_upstream_port }};
+    keepalive 16;
+}
+
+server {
+    listen 80;
+    server_name {{ nginx_server_name }};
+
+    access_log /var/log/nginx/{{ nginx_site_name }}.access.log;
+    error_log  /var/log/nginx/{{ nginx_site_name }}.error.log;
+
+    # El challenge HTTP-01 debe seguir sirviendose en claro incluso con TLS activo.
+    location ^~ /.well-known/acme-challenge/ {
+        root {{ nginx_acme_webroot }};
+        default_type "text/plain";
+    }
+
+{% if nginx_tls_ready %}
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name {{ nginx_server_name }};
+
+    access_log /var/log/nginx/{{ nginx_site_name }}.access.log;
+    error_log  /var/log/nginx/{{ nginx_site_name }}.error.log;
+
+    ssl_certificate     {{ nginx_cert_fullchain }};
+    ssl_certificate_key {{ nginx_cert_privkey }};
+
+    # Politica TLS definida aqui y no en los ficheros que genera Certbot, para
+    # que la configuracion tenga una unica fuente de verdad.
+    ssl_protocols             TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache         shared:SSL:10m;
+    ssl_session_timeout       1d;
+    ssl_session_tickets       off;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options    "nosniff" always;
+    add_header X-Frame-Options           "SAMEORIGIN" always;
+
+{% endif %}
+    location / {
+        proxy_pass http://{{ nginx_site_name }}_backend;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade_{{ nginx_site_name }};
+
+        proxy_connect_timeout 5s;
+        proxy_send_timeout    30s;
+        proxy_read_timeout    30s;
+    }
+}

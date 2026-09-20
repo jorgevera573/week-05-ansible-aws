@@ -1,0 +1,45 @@
+---
+# Estas tareas son la UNICA fuente de verdad de la configuracion de Nginx.
+#
+# Se ejecutan dos veces en la primera pasada del playbook:
+#   1) desde el rol nginx, cuando todavia no hay certificado -> vhost solo HTTP,
+#      suficiente para que Let's Encrypt complete el challenge;
+#   2) desde el rol certbot, ya con el certificado emitido -> vhost con HTTPS
+#      y redireccion 301 desde HTTP.
+#
+# Por eso Certbot se invoca con `certonly`: no modifica la configuracion de
+# Nginx, solo emite el material criptografico. La plantilla nunca pisa cambios
+# de Certbot porque Certbot no toca estos ficheros.
+- name: Comprobar si ya existe el certificado del dominio
+  ansible.builtin.stat:
+    path: "{{ nginx_cert_fullchain }}"
+  register: nginx_cert_stat
+
+- name: Determinar si el vhost debe publicar HTTPS
+  ansible.builtin.set_fact:
+    nginx_tls_ready: "{{ nginx_cert_stat.stat.exists | bool }}"
+
+- name: Renderizar el virtual host del reverse proxy
+  ansible.builtin.template:
+    src: site.conf.j2
+    dest: "/etc/nginx/sites-available/{{ nginx_site_name }}.conf"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Validar la configuracion de Nginx
+    - Recargar Nginx
+
+- name: Activar el virtual host
+  ansible.builtin.file:
+    src: "/etc/nginx/sites-available/{{ nginx_site_name }}.conf"
+    dest: "/etc/nginx/sites-enabled/{{ nginx_site_name }}.conf"
+    state: link
+    owner: root
+    group: root
+  notify:
+    - Validar la configuracion de Nginx
+    - Recargar Nginx
+
+- name: Aplicar los cambios de configuracion pendientes
+  ansible.builtin.meta: flush_handlers

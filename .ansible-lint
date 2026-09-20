@@ -1,0 +1,17 @@
+---
+# Perfil "production": el mas estricto de ansible-lint. Exige nombres de tarea,
+# FQCN, permisos explicitos, changed_when y metadatos de rol completos.
+profile: production
+
+exclude_paths:
+  - .git/
+  - .gitlab-ci.yml
+  - infra/
+
+# yamllint usa la configuracion de .yamllint de la raiz del repositorio.
+use_default_rules: true
+
+skip_list: []
+
+warn_list:
+  - experimental
