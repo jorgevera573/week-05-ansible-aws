@@ -17,3 +17,6 @@ nginx_acme_webroot: /var/www/letsencrypt
 
 nginx_packages:
   - nginx
+
+# Las variables de Nginx no admiten guiones en su identificador.
+nginx_identifier: "{{ nginx_site_name | regex_replace('[^A-Za-z0-9_]', '_') }}"

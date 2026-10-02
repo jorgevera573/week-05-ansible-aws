@@ -589,3 +589,62 @@ Resumen de los puntos a cubrir:
    `enabled`, y el sitio sigue respondiendo 200 por HTTPS.
 9. **CI** — pipeline [#3079](https://gitlab.codecrypto.academy/jverav573/1.4.30-ansible-aws/-/pipelines/3079)
    en verde, dejando claro que valida código estático, no el despliegue.
+
+
+## Dominio de desarrollo del campus (consolidacion)
+
+El campus registra `*.jverav573.alumnos.codecrypto.dev` hacia `54.160.157.177`.
+Se publica `https://web.jverav573.alumnos.codecrypto.dev` como segundo acceso
+al mismo backend `127.0.0.1:3000`. El certificado cubre ese nombre concreto,
+no todos los nombres del comodin DNS.
+
+`campus_domain` define el nuevo dominio. El segundo play de `site.yml` reutiliza
+los roles nginx y certbot con variables locales: conserva el vhost original
+`demoapp.conf` y gestiona `campus-web.conf`. No modifica la aplicacion Node.js;
+por eso el campo `dominio` de su JSON sigue mostrando el dominio original.
+
+La plantilla normaliza los identificadores internos de Nginx para admitir el
+nombre de archivo `campus-web`. Si no existe certificado, publica primero HTTP;
+el rol certbot lo emite y vuelve a renderizar HTTPS. Un certificado ya existente
+no se reemite: se mantiene su configuracion de renovacion, incluido el metodo
+webroot utilizado en la configuracion manual del campus. Para servidores nuevos,
+se mantiene la estrategia `certonly --nginx` del rol original.
+
+Ambos certificados usan el timer existente y un unico hook `reload-nginx.sh`,
+que valida con `nginx -t` antes de recargar. Ansible retira el hook manual
+`reload-nginx-campus` para evitar recargas duplicadas.
+
+### Aplicacion desde WSL
+
+En la terminal WSL local, con la clave cargada en ssh-agent:
+
+```bash
+cd /mnt/c/MASTER-ING-SOFTWARE/semana-05/1.4.30-ansible-aws
+export ANSIBLE_CONFIG="$PWD/ansible.cfg"
+yamllint .
+ansible-playbook site.yml --syntax-check
+ansible-lint
+ansible-playbook site.yml --tags campus
+ansible-playbook site.yml --tags campus
+```
+
+La segunda ejecucion debe converger sin cambios. El despliegue completo de
+`site.yml` configura ambos dominios; `--tags campus` actualiza solo los roles
+web/TLS del campus sobre el servidor existente.
+
+```bash
+curl -I http://web.jverav573.alumnos.codecrypto.dev
+curl -I https://web.jverav573.alumnos.codecrypto.dev
+curl -I https://aws.jorgeveraoficial.com
+ansible all -b -m ansible.builtin.command -a "certbot renew --cert-name web.jverav573.alumnos.codecrypto.dev --dry-run"
+```
+
+Evidencia previa a esta integracion: el 2 de octubre de 2026 el alumno comprobo
+HTTPS 200 en ambos dominios y la respuesta JSON en el navegador del campus.
+La aplicacion de este cambio con Ansible y su idempotencia deben verificarse
+con los comandos anteriores; esas pruebas remotas no se han ejecutado aqui.
+
+El acceso SSH se habilito desde la IP publica actual del alumno mediante una
+regla /32. Antes de un futuro `terraform apply`, actualizar `ssh_allowed_cidr`
+en el `infra/terraform.tfvars` local y revisar el plan para reconciliar la regla
+manual. No versionar el estado ni las claves privadas.

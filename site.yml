@@ -37,3 +37,28 @@
       tags: [nginx]
     - role: certbot
       tags: [certbot, tls]
+
+# Segundo vhost: reutiliza los roles sin reinstalar ni reconfigurar la app.
+# Las variables de este play no cambian el dominio del play anterior.
+- name: Configurar el dominio de desarrollo del campus
+  hosts: web
+  become: true
+  gather_facts: true
+  tags: [campus]
+  vars:
+    app_domain: "{{ campus_domain }}"
+    nginx_site_name: campus-web
+
+  pre_tasks:
+    - name: Comprobar el dominio del campus
+      ansible.builtin.assert:
+        that:
+          - campus_domain is defined
+          - campus_domain | length > 0
+        quiet: true
+
+  roles:
+    - role: nginx
+      tags: [nginx]
+    - role: certbot
+      tags: [certbot, tls]

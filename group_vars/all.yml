@@ -30,3 +30,6 @@ nodejs_major_version: 22
 # Permite ejecutar todo el playbook sin tocar TLS:
 #   ansible-playbook site.yml -e certbot_enabled=false
 certbot_enabled: true
+
+# Subdominio del campus: mismo servidor y aplicacion, certificado independiente.
+campus_domain: web.jverav573.alumnos.codecrypto.dev

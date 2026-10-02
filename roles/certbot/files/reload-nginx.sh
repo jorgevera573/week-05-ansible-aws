@@ -6,4 +6,5 @@
 # verdad hace falta.
 set -eu
 
+nginx -t
 systemctl reload nginx

@@ -44,7 +44,7 @@
           El registro A de {{ certbot_domain }} resuelve a
           "{{ certbot_dns_a.stdout_lines | join(', ') | default('nada', true) }}"
           y no a la Elastic IP {{ certbot_expected_ip }}. Corrige el registro A
-          en GoDaddy y espera a la propagacion antes de volver a ejecutar.
+          en el proveedor DNS y espera a la propagacion antes de volver a ejecutar.
         success_msg: "El registro A apunta correctamente a {{ certbot_expected_ip }}."
         quiet: true
       when: certbot_enforce_dns_check | bool
@@ -57,7 +57,7 @@
           El dominio {{ certbot_domain }} tiene registros AAAA
           ({{ certbot_dns_aaaa.stdout_lines | join(', ') }}). Let's Encrypt
           prefiere IPv6 para el challenge y esta EC2 no tiene IPv6 publica, por
-          lo que la validacion fallaria. Elimina los registros AAAA en GoDaddy.
+          lo que la validacion fallaria. Elimina los registros AAAA en el proveedor DNS.
         success_msg: "Sin registros AAAA: el challenge se resolvera sobre IPv4."
         quiet: true
       when: certbot_enforce_dns_check | bool
@@ -107,6 +107,12 @@
     owner: root
     group: root
     mode: "0755"
+
+# Migracion de la configuracion manual del campus: un solo hook para ambos.
+- name: Retirar el hook duplicado del campus
+  ansible.builtin.file:
+    path: /etc/letsencrypt/renewal-hooks/deploy/reload-nginx-campus
+    state: absent
 
 # El paquete certbot de Ubuntu instala certbot.timer y tambien /etc/cron.d/certbot.
 # El cron comprueba si el timer esta activo y, en ese caso, no hace nada: no se
